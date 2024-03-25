@@ -2,15 +2,43 @@
 
 # Press ⌃R to execute it or replace it with your code.
 # Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
+import os
+import anthropic
+import streamlit as st
 
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press ⌘F8 to toggle the breakpoint.
+st.title("Claude3 by Streamlit")
+ai_model = os.environ.get('AI_MODEL')
+api_key = os.environ.get('API_KEY')
 
+client = anthropic.Anthropic(api_key=api_key,)
+if "ai_model" not in st.session_state:
+    st.session_state["ai_model"] = ai_model
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+if prompt := st.chat_input("What is up?"):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        full_response = ""
+        with client.messages.stream(
+            max_tokens=1024,
+            messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages],
+            model=st.session_state["ai_model"],
+        ) as stream:
+            for text in stream.text_stream:
+                full_response += str(text) if text is not None else ""
+                message_placeholder.markdown(full_response + "▌")
+        message_placeholder.markdown(full_response)
+    st.session_state.messages.append({"role": "assistant", "content": full_response})
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
